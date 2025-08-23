@@ -1,13 +1,14 @@
 import { DataField } from '@/types/data';
 import { RegressionResult } from './types';
-import { standardize, calculateRobustStandardError, getTValue, calculateRegressionMetrics } from './utils';
+import { standardize, calculateRobustStandardError, getTValue, calculateRegressionMetrics, addCrossValidationToMetrics } from './utils';
 
 export function calculateLogisticRegression(
   dependent: DataField,
   independent: DataField,
   maxIterations: number = 1000,
   tolerance: number = 1e-4,
-  learningRate: number = 0.01
+  learningRate: number = 0.01,
+  crossValidationFolds: number = 5
 ): RegressionResult {
   // y should be 0/1, x standardized OK
   const y = dependent.value as number[];
@@ -63,6 +64,34 @@ export function calculateLogisticRegression(
   metrics.accuracy = accuracy;
   metrics.logLoss = logLoss;
   
+  // Add cross-validation
+  const { crossValidationScore, crossValidationDetails } = addCrossValidationToMetrics(
+    x, y, crossValidationFolds,
+    (xTrain, yTrain) => {
+      // Logistic regression for cross-validation
+      let b0 = 0, b1 = 0;
+      const nTrain = xTrain.length;
+      
+      // Gradient descent for logistic regression
+      for (let iter = 0; iter < maxIterations; iter++) {
+        // predictions using sigmoid
+        const p = xTrain.map((xi) => 1 / (1 + Math.exp(-(b0 + b1 * xi))));
+        
+        // gradients (negative log-likelihood)
+        const g0 = p.reduce((a, pi, i) => a + (pi - yTrain[i]), 0);
+        const g1 = p.reduce((a, pi, i) => a + (pi - yTrain[i]) * xTrain[i], 0);
+        
+        // simple step
+        b0 -= learningRate * g0 / nTrain;
+        b1 -= learningRate * g1 / nTrain;
+        
+        if (Math.abs(learningRate * g0 / nTrain) + Math.abs(learningRate * g1 / nTrain) < tolerance) break;
+      }
+      
+      return { coefficients: [b0, b1] };
+    }
+  );
+  
   return {
     field: dependent.name,
     type: 'logistic',
@@ -77,7 +106,9 @@ export function calculateLogisticRegression(
     metrics: {
       ...metrics,
       r2Score: accuracy, // Add r2Score for UI compatibility
-      adjustedR2: accuracy // For logistic, use accuracy as adjusted R² too
+      adjustedR2: accuracy, // For logistic, use accuracy as adjusted R² too
+      crossValidationScore, // Add cross-validation score
+      crossValidationDetails // Add detailed cross-validation results
     }
   };
 } 
