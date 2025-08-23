@@ -55,6 +55,7 @@ export interface RegressionOptions {
   stepwiseThreshold?: number;
   timeSeriesLag?: number;
   selectedFeatures?: number[];
+  crossValidationFolds?: number; // Number of folds for cross-validation
   validationMetrics?: {
     crossValidationScore: number;
     testSetScore: number;
