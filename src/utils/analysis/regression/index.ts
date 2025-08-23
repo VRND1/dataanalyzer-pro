@@ -37,34 +37,34 @@ export function performRegression(
 
     switch (options.type) {
       case 'linear':
-        result = calculateLinearRegression(dependent, independents[0]);
+        result = calculateLinearRegression(dependent, independents[0], options.crossValidationFolds || 5);
         break;
       case 'polynomial':
-        result = calculatePolynomialRegression(dependent, independents[0], options.polynomialDegree || 2);
+        result = calculatePolynomialRegression(dependent, independents[0], options.polynomialDegree || 2, options.crossValidationFolds || 5);
         break;
       case 'ridge':
-        result = calculateRidgeRegression(dependent, independents[0], options.alpha || 0.1);
+        result = calculateRidgeRegression(dependent, independents[0], options.alpha || 0.1, options.crossValidationFolds || 5);
         break;
       case 'lasso':
-        result = calculateLassoRegression(dependent, independents[0], options.alpha || 0.1);
+        result = calculateLassoRegression(dependent, independents[0], options.alpha || 0.1, options.crossValidationFolds || 5);
         break;
       case 'elastic-net':
-        result = calculateElasticNetRegression(dependent, independents[0], options.alpha || 0.1, options.l1Ratio || 0.5);
+        result = calculateElasticNetRegression(dependent, independents[0], options.alpha || 0.1, options.l1Ratio || 0.5, options.crossValidationFolds || 5);
         break;
       case 'logistic':
-        result = calculateLogisticRegression(dependent, independents[0]);
+        result = calculateLogisticRegression(dependent, independents[0], 1000, 1e-4, 0.01, options.crossValidationFolds || 5);
         break;
       case 'quantile':
-        result = calculateQuantileRegression(dependent, independents[0], options.quantile || 0.5);
+        result = calculateQuantileRegression(dependent, independents[0], options.quantile || 0.5, options.crossValidationFolds || 5);
         break;
       case 'time-series':
-        result = calculateTimeSeriesRegression(dependent, independents[0], options.timeSeriesLag || 1);
+        result = calculateTimeSeriesRegression(dependent, independents[0], options.timeSeriesLag || 1, options.crossValidationFolds || 5);
         break;
       case 'log-log':
-        result = calculateLogLogRegression(dependent, independents[0]);
+        result = calculateLogLogRegression(dependent, independents[0], options.crossValidationFolds || 5);
         break;
       default:
-        result = calculateLinearRegression(dependent, independents[0]);
+        result = calculateLinearRegression(dependent, independents[0], options.crossValidationFolds || 5);
     }
 
     results.push(result);
