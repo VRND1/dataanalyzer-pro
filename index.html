@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval' https://dataanalyzerpr00.netlify.app https://va.vercel-scripts.com; worker-src 'self' blob: data:; child-src 'self' blob: data:; connect-src 'self' http://localhost:8000 http://localhost:8003 https://*.supabase.co https://*.spline.design;" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://www.dataanalyzerpro.com/" />
+
+    <!-- Favicon -->
+    <link rel="icon" href="public/images/logo-logo1.png" type="image/png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="public/images/logo-logo1.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="public/images/logo-logo1.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="public/images/logo-logo1.png">
+    <link rel="manifest" href="/site.webmanifest">
+
+    <!-- SEO Meta --> 
+    <meta name="description" content="Transform your data into actionable insights with AI-powered analytics from DataAnalyzer Pro." />
+    <meta name="author" content="DataAnalyzer Pro Team" />
+    <meta name="theme-color" content="#0f766e" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.dataanalyzerpro.com/" />
+    <meta property="og:title" content="DataAnalyzer Pro" />
+    <meta property="og:description" content="Transform your data into actionable insights with AI-powered analytics." />
+    <meta property="og:image" content="https://www.dataanalyzerpro.com/og-image.png" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DataAnalyzer Pro" />
+    <meta name="twitter:description" content="Transform your data into actionable insights with AI-powered analytics." />
+    <meta name="twitter:image" content="https://www.dataanalyzerpro.com/og-image.png" />
+
+    <!-- Structured Data for Google Knowledge Panel -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "DataAnalyzer Pro",
+      "url": "https://www.dataanalyzerpro.com",
+      "logo": "https://www.dataanalyzerpro.com/images/logo.png"
+    }
+    </script>
+
+    <title>DataAnalyzer Pro</title>
+
+    <!-- Inline Styles (Dropdown Example) -->
+    <style>
+      .dropdown {
+        position: relative;
+        display: inline-block;
+      }
+      .dropdown-content {
+        display: none;
+        position: absolute;
+        background-color: #2a2a2a;
+        min-width: 150px;
+        box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+        z-index: 1;
+        border-radius: 8px;
+      }
+      .dropdown-content a {
+        color: white;
+        padding: 10px 16px;
+        text-decoration: none;
+        display: block;
+      }
+      .dropdown-content a:hover {
+        background-color: #555;
+      }
+      .dropdown:hover .dropdown-content {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

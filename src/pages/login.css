@@ -1,0 +1,359 @@
+.background-radial-gradient {
+  background: linear-gradient(45deg, #0d9488, #6366f1);
+  min-height: 100vh;
+}
+
+.bg-glass {
+  background-color: rgba(220, 140, 140, 0.9) !important;
+  backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  border: 1px solid rgba(20, 3, 3, 0.2);
+}
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color:rgba(14, 32, 40, 0.85);
+  padding: 20px;
+}
+
+.login-card {
+  display: flex;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(82, 197, 193, 0.1);
+  overflow: hidden;
+  width: 100%;
+  max-width: 1400px;
+}
+
+.login-form-col {
+  padding: 6rem 6rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center; /* add this to center items horizontally */
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.login-image-col {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  background-color: #f0f6ff;
+  padding: 5rem;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.login-image {
+  max-width: 90%;
+  height: auto;
+  object-fit: contain;
+  animation: float 6s ease-in-out infinite;
+}
+
+.login-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #3b71ca;
+  margin-bottom: 2rem;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.login-error {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px 15px;
+  border-radius: 5px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  animation: shake 0.5s ease-in-out;
+}
+
+.login-input-wrapper {
+  margin-bottom: 1.5rem;
+  animation: fadeInUp 0.6s ease-out;
+  animation-fill-mode: both;
+}
+
+.login-input-wrapper:nth-child(1) { animation-delay: 0.1s; }
+.login-input-wrapper:nth-child(2) { animation-delay: 0.2s; }
+
+.login-input {
+  background-color: #f8f9fa;
+  border-radius: 5px;
+}
+
+.login-input input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ced4da;
+  border-radius: 5px;
+  font-size: 1rem;
+  background-color: #f8f9fa;
+  transition: border-color 0.2s ease;
+}
+
+.login-input input:focus {
+  border-color: #3b71ca;
+  outline: none;
+  background-color: #fff;
+}
+
+.login-password-wrapper {
+  position: relative;
+  margin-bottom: 1.5rem;
+}
+
+.login-password-toggle {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  animation: fadeInUp 0.6s ease-out;
+  animation-delay: 0.3s;
+  animation-fill-mode: both;
+}
+
+.login-remember {
+  color: #6c757d;
+}
+
+.login-forgot {
+  color: #3b71ca;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.login-forgot:hover {
+  color: #2d5da3;
+  transform: translateY(-1px);
+}
+
+.login-submit {
+  width: 100%;
+  margin-bottom: 1.5rem;
+  background-color: #3b71ca;
+  border: none;
+  padding: 12px;
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  animation: fadeInUp 0.6s ease-out;
+  animation-delay: 0.4s;
+  animation-fill-mode: both;
+}
+
+.login-submit:hover {
+  background-color: #2d5da3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 113, 202, 0.2);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  color: #6c757d;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.login-divider::before {
+  margin-right: 1rem;
+}
+
+.login-divider::after {
+  margin-left: 1rem;
+}
+
+.login-social-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-facebook {
+  background-color: #3b5998;
+  width: 100%;
+}
+
+.login-twitter {
+  background-color: #1da1f2;
+  width: 100%;
+}
+
+.login-social-icon {
+  margin-right: 10px;
+}
+
+@media (max-width: 992px) {
+  .login-card {
+    flex-direction: column;
+  }
+  
+  .login-image-col {
+    display: none;
+  }
+  
+  .login-form-col {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .login-form-col {
+    padding: 1.5rem;
+  }
+  
+  .login-options {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .login-forgot {
+    align-self: flex-end;
+  }
+}
+
+/* Animation Keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Enhanced hover effects */
+.login-submit:hover {
+  background-color: #2d5da3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 113, 202, 0.2);
+}
+
+.login-forgot:hover {
+  color: #2d5da3;
+  transform: translateY(-1px);
+}
+
+/* Social buttons hover effects */
+.flex.flex-col button {
+  transition: all 0.3s ease;
+}
+
+.flex.flex-col button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.flex.flex-col button:active {
+  transform: translateY(0);
+}
+
+/* Blob Animation */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Add styles for the gradient blobs container */
+.gradient-blobs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.gradient-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: overlay;
+  filter: blur(40px);
+}
+
+.blob-1 {
+  width: 1200px;
+  height: 1200px;
+  top: -600px;
+  left: -600px;
+  background: linear-gradient(to right, rgba(20, 184, 166, 0.5), rgba(99, 102, 241, 0.5));
+}
+
+.blob-2 {
+  width: 1000px;
+  height: 1000px;
+  top: 100px;
+  right: 100px;
+  background: linear-gradient(to left, rgba(168, 85, 247, 0.5), rgba(236, 72, 153, 0.5));
+}
+
+.blob-3 {
+  width: 900px;
+  height: 900px;
+  bottom: -300px;
+  left: 20%;
+  background: linear-gradient(to top, rgba(59, 130, 246, 0.5), rgba(34, 197, 94, 0.5));
+} 

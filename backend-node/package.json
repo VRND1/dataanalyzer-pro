@@ -1,0 +1,54 @@
+{
+  "name": "dataanalyzer-pro-backend",
+  "version": "1.0.0",
+  "description": "Node.js backend for DataAnalyzer Pro",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "build": "tsc",
+    "build:worker": "tsc --project tsconfig.worker.json",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:api": "node test-api.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "ws": "^8.14.2",
+    "multer": "^1.4.5-lts.1",
+    "joi": "^17.11.0",
+    "ml-matrix": "^6.12.1",
+    "ml-regression": "^5.0.0",
+    "simple-statistics": "^7.8.8",
+    "natural": "^6.10.4",
+    "compromise": "^14.10.0",
+    "mathjs": "^12.2.1",
+    "moment": "^2.29.4",
+    "uuid": "^9.0.1",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^3.3.2",
+    "papaparse": "^5.4.1",
+    "xlsx": "^0.18.5",
+    "ml-array-mean": "^1.0.0",
+    "ml-array-variance": "^1.0.0",
+    "ml-array-standard-deviation": "^1.0.0",
+    "ml-levenberg-marquardt": "^2.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.5",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
+    "@types/papaparse": "^5.3.14"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

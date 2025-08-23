@@ -1,0 +1,337 @@
+import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Hexagon, Brain, BarChart2, FileText, PlayCircle, 
+  LineChart, Settings2, Share2, Database,
+  Search, Bell, Settings, LogOut, User, ChevronDown
+} from 'lucide-react';
+import { FileUpload } from '@/components/file';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { useAuth } from '@/hooks/useAuth';
+import { AlertSystem } from '@/components/monitoring/AlertSystem';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
+
+export function Dashboard() {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  
+  // State for UI elements
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const onUploadSuccess = useCallback(() => {
+    navigate('/analysis');
+  }, [navigate]);
+
+  const { handleFileUpload, isUploading, error } = useFileUpload(onUploadSuccess);
+
+  // Handle search
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Navigate to search results page with query
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const features = [
+    {
+      title: 'Data Analysis',
+      description: 'Analyze your data with AI-powered insights',
+      icon: Brain,
+      color: 'teal',
+      path: '/analysis/new'
+    },
+    {
+      title: 'Visualizations',
+      description: 'Create interactive charts and dashboards',
+      icon: BarChart2,
+      color: 'indigo',
+      path: '/analysis/visualizations'
+    },
+    {
+      title: 'Reports',
+      description: 'Generate comprehensive analysis reports',
+      icon: FileText,
+      color: 'blue',
+      path: '/analysis/reports'
+    },
+    {
+      title: ''Simulations,
+      description: 'Run predictive simulations and scenarios',
+      icon: PlayCircle,
+      color: 'purple',
+      path: '/analysis/simulations'
+    },
+    {
+      title: 'Trends',
+      description: 'Track patterns and predict future trends',
+      icon: LineChart,
+      color: 'green',
+      path: '/analysis/trends'
+    },
+    {
+      title: 'Workspaces',
+      description: 'Organize and share your analyses',
+      icon: Database,
+      color: 'orange',
+      path: '/workspaces'
+    },
+    {
+      title: 'Collaboration',
+      description: 'Work together with your team',
+      icon: Share2,
+      color: 'pink',
+      path: '/team'
+    },
+    {
+      title: 'Settings',
+      description: 'Configure analysis preferences',
+      icon: Settings2,
+      color: 'gray',
+      path: '/settings'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#0F172A] text-white py-12 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute w-[1000px] h-[1000px] -top-[500px] -left-[500px] bg-gradient-to-r from-teal-500/30 to-indigo-500/30 rounded-full mix-blend-overlay animate-blob"></div>
+        <div className="absolute w-[800px] h-[800px] top-[200px] right-[100px] bg-gradient-to-l from-purple-500/30 to-pink-500/30 rounded-full mix-blend-overlay animate-blob animation-delay-2000"></div>
+        <div className="absolute w-[600px] h-[600px] bottom-[-200px] left-[30%] bg-gradient-to-t from-blue-500/30 to-green-500/30 rounded-full mix-blend-overlay animate-blob animation-delay-4000"></div>
+        
+        {/* Grid Background */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDBNIDAgMjAgTCA0MCAyMCBNIDIwIDAgTCAyMCA0ME0gMCAzMCBMIDQwIDMwIE0gMzAgMCBMIDMwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiMxRTI5M0IiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-10"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 relative">
+        {/* Header with Logo and Features */}
+        <div className="flex items-center justify-between mb-12">
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <div className="relative group perspective-1000">
+              <div className="relative transform transition-all duration-700 preserve-3d hover:rotate-y-180 cursor-pointer">
+                <div className="absolute inset-0 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-full blur-2xl opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative">
+                  <Hexagon className="w-12 h-12 text-white transition-transform group-hover:scale-110" strokeWidth={1.5} />
+                  <Hexagon 
+                    className="w-10 h-10 text-white/80 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-90" 
+                    strokeWidth={1.5} 
+                  />
+                </div>
+              </div>
+            </div>
+            <span className="text-xl font-bold text-white">DataAnalyzer Pro</span>
+          </div>
+          
+          {/* Header Features */}
+          <div className="flex items-center gap-4">
+            {/* Search */}
+            <div className="hidden md:block relative">
+              <form onSubmit={handleSearch}>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-64 pl-10 pr-4 py-2 glass-effect rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transform transition-all duration-300 focus:scale-105"
+                />
+                <button 
+                  type="submit"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+
+            {/* Notifications */}
+            <div className="relative">
+              <AlertSystem
+                data={{ 
+                  fields: [
+                    { 
+                      name: 'revenue', 
+                      type: 'number', 
+                      value: [950000, 980000, 1020000, 1050000, 1100000] 
+                    },
+                    { 
+                      name: 'profit', 
+                      type: 'number', 
+                      value: [95000, 98000, 102000, 105000, 110000] 
+                    },
+                    { 
+                      name: 'roi', 
+                      type: 'number', 
+                      value: [12, 13, 14, 15, 16] 
+                    }
+                  ] 
+                }}
+                thresholds={{
+                  revenue: 1200000,
+                  profit: 120000,
+                  roi: 18
+                }}
+                isVisible={showNotifications}
+                onClose={() => setShowNotifications(false)}
+              />
+
+              {/* Bell Icon */}
+              <button 
+                className="p-2 text-gray-300 hover:text-white transition-colors relative"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <Bell className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  3
+                </span>
+              </button>
+            </div>
+
+            {/* Settings */}
+            <button 
+              className="p-2 text-gray-300 hover:text-white transition-colors"
+              onClick={() => setShowSettings(true)}
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+
+            {/* User Avatar with Dropdown */}
+            <div className="relative">
+              <button 
+                className="flex items-center gap-2 pl-2"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-teal-500/30 to-indigo-500/30 flex items-center justify-center transform hover:scale-110 transition-transform duration-300">
+                  <span className="text-sm font-medium text-teal-400">
+                    {user?.email?.[0].toUpperCase() || 'A'}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+              
+              {/* User Dropdown Menu */}
+              {showUserMenu && (
+                <div className="absolute right-0 mt-2 w-48 glass-effect rounded-xl shadow-lg py-2 z-50">
+                  <div className="px-4 py-2 border-b border-white/10">
+                    <p className="text-sm font-medium text-white">{user?.email}</p>
+                  </div>
+                  <button 
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-2"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      navigate('/profile');
+                    }}
+                  >
+                    <User className="w-4 h-4" />
+                    Profile
+                  </button>
+                  <button 
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/10 flex items-center gap-2"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setShowSettings(true);
+                    }}
+                  >
+                    <Settings className="w-4 h-4" />
+                    Settings
+                  </button>
+                  <button 
+                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-white/10 flex items-center gap-2"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-teal-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent mb-4 animate-fade-in">
+            DataAnalyzer Pro
+          </h1>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-8 animate-fade-in animation-delay-300">
+            Transform your data into actionable insights with AI-powered analytics
+          </p>
+          
+          {/* File Upload */}
+          <div className="max-w-xl mx-auto bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 mb-12 transform hover:scale-105 transition-all duration-300 hover:border-teal-500/50">
+            <FileUpload
+              onFileSelect={handleFileUpload}
+              isProcessing={isUploading}
+              error={error}
+            />
+          </div>
+          
+          {/* Features Grid */}
+          <div className="mt-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {features.map((feature, index) => (
+                <button
+                  key={feature.title}
+                  onClick={() => navigate(feature.path)}
+                  className="group bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 hover:border-teal-500/50 transition-all text-left transform hover:-translate-y-1 hover:scale-[1.02] duration-300 animate-fade-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-r from-teal-500/20 to-indigo-500/20 text-white group-hover:from-teal-500/30 group-hover:to-indigo-500/30 transition-colors">
+                      <feature.icon className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-medium text-white">{feature.title}</h3>
+                  </div>
+                  <p className="text-sm text-gray-400">{feature.description}</p>
+                </button>
+              ))}
+            </div>
+            
+            {/* Quick Links */}
+            <div className="mt-12 flex items-center justify-center gap-4">
+              <button
+                onClick={() => navigate('/help')}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Documentation
+              </button>
+              <span className="text-gray-700">•</span>
+              <button
+                onClick={() => navigate('/tutorials')}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Tutorials
+              </button>
+              <span className="text-gray-700">•</span>
+              <button
+                onClick={() => navigate('/support')}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Support
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Settings Panel */}
+      <SettingsPanel 
+        isVisible={showSettings} 
+        onClose={() => setShowSettings(false)} 
+      />
+    </div>
+  );
+}

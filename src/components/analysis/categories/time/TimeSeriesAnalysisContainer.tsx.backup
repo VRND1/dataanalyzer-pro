@@ -1,0 +1,945 @@
+import { useState, useEffect, useMemo } from 'react';
+import { DataField } from '@/types/data';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import EnhancedARIMA from './ARIMA';
+import { ExponentialSmoothing } from './ExponentialSmoothing';
+import { SeasonalDecomposition } from './SeasonalDecomposition';
+import { TimeSeriesResult } from '@/utils/analysis/timeSeries/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+interface TimeSeriesAnalysisContainerProps {
+  data: {
+    fields: DataField[];
+  };
+}
+
+interface TimeSeriesDataPoint {
+  timestamp: number;
+  value: number;
+  field: string;
+  originalIndex: number;
+}
+
+interface StatisticalSummary {
+  mean: number;
+  std: number;
+  min: number;
+  max: number;
+  count: number;
+  variance: number;
+  skewness: number;
+  kurtosis: number;
+}
+
+interface StationarityTest {
+  isStationary: boolean;
+  pValue: number;
+  testStatistic: number;
+  criticalValues: { [key: string]: number };
+}
+
+export function TimeSeriesAnalysisContainer({ data }: TimeSeriesAnalysisContainerProps) {
+  const [activeTab, setActiveTab] = useState('arima');
+  const [results, setResults] = useState<TimeSeriesResult[]>([]);
+  const [selectedField, setSelectedField] = useState<string>('');
+  const [dateField, setDateField] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [forecastPeriods, setForecastPeriods] = useState(5);
+  const [confidenceLevel, setConfidenceLevel] = useState(95);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Get all numeric and date fields
+  const numericFields = useMemo(() => 
+    data.fields.filter(field => field.type === 'number' && Array.isArray(field.value)), 
+    [data.fields]
+  );
+  
+  const dateFields = useMemo(() => 
+    data.fields.filter(field => field.type === 'date' || field.type === 'datetime' || field.name.toLowerCase().includes('date')), 
+    [data.fields]
+  );
+
+  // Set default selected fields
+  useEffect(() => {
+    if (numericFields.length > 0 && !selectedField) {
+      setSelectedField(numericFields[0].name);
+    }
+    if (dateFields.length > 0 && !dateField) {
+      setDateField(dateFields[0].name);
+    }
+  }, [numericFields, dateFields, selectedField, dateField]);
+
+  // Statistical calculations
+  const calculateStatistics = (values: number[]): StatisticalSummary => {
+    const n = values.length;
+    const mean = values.reduce((sum, val) => sum + val, 0) / n;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (n - 1);
+    const std = Math.sqrt(variance);
+    
+    // Skewness calculation
+    const skewness = values.reduce((sum, val) => sum + Math.pow((val - mean) / std, 3), 0) / n;
+    
+    // Kurtosis calculation
+    const kurtosis = values.reduce((sum, val) => sum + Math.pow((val - mean) / std, 4), 0) / n - 3;
+    
+    return {
+      mean,
+      std,
+      min: Math.min(...values),
+      max: Math.max(...values),
+      count: n,
+      variance,
+      skewness,
+      kurtosis
+    };
+  };
+
+  // Augmented Dickey-Fuller test for stationarity
+  const augmentedDickeyFullerTest = (values: number[]): StationarityTest => {
+    if (values.length < 10) {
+      return {
+        isStationary: false,
+        pValue: 1,
+        testStatistic: 0,
+        criticalValues: { '1%': -3.43, '5%': -2.86, '10%': -2.57 }
+      };
+    }
+
+    // Simple differencing approach to check stationarity
+    const differences = values.slice(1).map((val, i) => val - values[i]);
+    const diffMean = differences.reduce((sum, val) => sum + val, 0) / differences.length;
+    const diffVariance = differences.reduce((sum, val) => sum + Math.pow(val - diffMean, 2), 0) / (differences.length - 1);
+    
+    // Simplified test statistic calculation
+    const testStatistic = diffMean / Math.sqrt(diffVariance / differences.length);
+    const criticalValues = { '1%': -3.43, '5%': -2.86, '10%': -2.57 };
+    
+    const isStationary = testStatistic < criticalValues['5%'];
+    const pValue = isStationary ? 0.03 : 0.15; // Simplified p-value estimation
+    
+    return {
+      isStationary,
+      pValue,
+      testStatistic,
+      criticalValues
+    };
+  };
+
+  // Autocorrelation function
+  const calculateAutocorrelation = (values: number[], maxLag: number = 20): number[] => {
+    const n = values.length;
+    const mean = values.reduce((sum, val) => sum + val, 0) / n;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
+    
+    const autocorrelations: number[] = [];
+    
+    for (let lag = 0; lag <= Math.min(maxLag, n - 1); lag++) {
+      let covariance = 0;
+      for (let i = 0; i < n - lag; i++) {
+        covariance += (values[i] - mean) * (values[i + lag] - mean);
+      }
+      covariance /= (n - lag);
+      autocorrelations.push(covariance / variance);
+    }
+    
+    return autocorrelations;
+  };
+
+  // Detect seasonality using autocorrelation
+  const detectSeasonality = (values: number[]): { period: number | null; strength: number } => {
+    const autocorr = calculateAutocorrelation(values, Math.min(24, Math.floor(values.length / 2)));
+    
+    let maxCorr = 0;
+    let seasonalPeriod = null;
+    
+    // Look for significant peaks in autocorrelation (excluding lag 0)
+    for (let i = 1; i < autocorr.length; i++) {
+      if (Math.abs(autocorr[i]) > 0.3 && Math.abs(autocorr[i]) > maxCorr) {
+        maxCorr = Math.abs(autocorr[i]);
+        seasonalPeriod = i;
+      }
+    }
+    
+    return {
+      period: seasonalPeriod,
+      strength: maxCorr
+    };
+  };
+
+  // Simple moving average for trend detection
+  const calculateTrend = (values: number[], windowSize: number = 3): 'increasing' | 'decreasing' | 'stable' => {
+    if (values.length < windowSize * 2) return 'stable';
+    
+    const firstHalf = values.slice(0, Math.floor(values.length / 2));
+    const secondHalf = values.slice(Math.floor(values.length / 2));
+    
+    const firstAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
+    const secondAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
+    
+    const percentChange = Math.abs((secondAvg - firstAvg) / firstAvg) * 100;
+    
+    if (percentChange < 5) return 'stable';
+    return secondAvg > firstAvg ? 'increasing' : 'decreasing';
+  };
+
+  // Enhanced time series data preparation
+  const getTimeSeriesData = (): TimeSeriesDataPoint[] => {
+    const field = data.fields.find(f => f.name === selectedField);
+    if (!field || field.type !== 'number' || !Array.isArray(field.value)) {
+      setAnalysisError('Selected field is not a valid numeric array');
+      return [];
+    }
+
+    const values = field.value as number[];
+    const validValues = values.filter(val => val !== null && val !== undefined && !isNaN(val));
+    
+    if (validValues.length < 10) {
+      setAnalysisError('Insufficient data points for analysis (minimum 10 required)');
+      return [];
+    }
+    
+    setAnalysisError(null);
+
+    // If date field is available, use it for timestamps
+    let timestamps: (number | Date)[] = [];
+    if (dateField) {
+      const dateFieldData = data.fields.find(f => f.name === dateField);
+      if (dateFieldData && Array.isArray(dateFieldData.value)) {
+        timestamps = dateFieldData.value.map(date => new Date(date).getTime());
+      }
+    }
+    
+    // Fallback to sequential indices if no date field
+    if (timestamps.length === 0) {
+      timestamps = validValues.map((_, index) => index);
+    }
+
+    return validValues.map((value, index) => ({
+      timestamp: typeof timestamps[index] === 'number' ? timestamps[index] : index,
+      value,
+      field: field.name,
+      originalIndex: index
+    }));
+  };
+
+  // Simple exponential smoothing forecast
+  const exponentialSmoothingForecast = (values: number[], alpha: number = 0.3, periods: number = 5): number[] => {
+    if (values.length === 0) return [];
+    
+    let smoothed = values[0];
+    const forecast: number[] = [];
+    
+    // Calculate smoothed values
+    for (let i = 1; i < values.length; i++) {
+      smoothed = alpha * values[i] + (1 - alpha) * smoothed;
+    }
+    
+    // Generate forecast
+    for (let i = 0; i < periods; i++) {
+      forecast.push(smoothed);
+    }
+    
+    return forecast;
+  };
+
+  // Simple ARIMA-like forecast using differencing and moving average
+  const arimaLikeForecast = (values: number[], periods: number = 5): number[] => {
+    if (values.length < 5) return new Array(periods).fill(values[values.length - 1] || 0);
+    
+    // First difference to make stationary
+    const differences = values.slice(1).map((val, i) => val - values[i]);
+    
+    // Calculate moving average of differences
+    const windowSize = Math.min(3, differences.length);
+    const recentDiffs = differences.slice(-windowSize);
+    const avgDiff = recentDiffs.reduce((sum, val) => sum + val, 0) / recentDiffs.length;
+    
+    // Generate forecast
+    const forecast: number[] = [];
+    let lastValue = values[values.length - 1];
+    
+    for (let i = 0; i < periods; i++) {
+      lastValue += avgDiff;
+      forecast.push(lastValue);
+    }
+    
+    return forecast;
+  };
+
+  // Enhanced analysis with actual calculations
+  const performActualAnalysis = (method: string): TimeSeriesResult => {
+    const timeSeriesData = getTimeSeriesData();
+    if (timeSeriesData.length === 0) {
+      throw new Error('No valid time series data available');
+    }
+    
+    const values = timeSeriesData.map(d => d.value);
+    const statistics = calculateStatistics(values);
+    const stationarityTest = augmentedDickeyFullerTest(values);
+    const seasonality = detectSeasonality(values);
+    const trend = calculateTrend(values);
+    const autocorrelation = calculateAutocorrelation(values);
+    
+    let forecast: number[] = [];
+    let components = {
+      trend: [] as number[],
+      seasonal: [] as number[],
+      residual: [] as number[]
+    };
+    
+    // Method-specific calculations
+    switch (method) {
+      case 'ARIMA':
+        forecast = arimaLikeForecast(values, forecastPeriods);
+        // Simple trend extraction using moving average
+        const trendValues = values.map((_, i) => {
+          const start = Math.max(0, i - 2);
+          const end = Math.min(values.length, i + 3);
+          const window = values.slice(start, end);
+          return window.reduce((sum, val) => sum + val, 0) / window.length;
+        });
+        components.trend = trendValues;
+        components.residual = values.map((val, i) => val - trendValues[i]);
+        break;
+        
+      case 'Exponential Smoothing':
+        forecast = exponentialSmoothingForecast(values, 0.3, forecastPeriods);
+        break;
+        
+      case 'Seasonal Decomposition':
+        // Simple seasonal decomposition
+        if (seasonality.period && seasonality.period > 1) {
+          const period = seasonality.period;
+          const seasonal = new Array(values.length).fill(0);
+          
+          // Calculate seasonal components
+          for (let i = 0; i < values.length; i++) {
+            const seasonIndex = i % period;
+            seasonal[i] = values.filter((_, idx) => idx % period === seasonIndex)
+              .reduce((sum, val) => sum + val, 0) / values.filter((_, idx) => idx % period === seasonIndex).length;
+          }
+          
+          components.seasonal = seasonal;
+          components.trend = values.map((val, i) => val - seasonal[i]);
+          components.residual = values.map((val, i) => val - seasonal[i] - components.trend[i]);
+          
+          // Forecast using seasonal pattern
+          forecast = [];
+          for (let i = 0; i < forecastPeriods; i++) {
+            const seasonIndex = (values.length + i) % period;
+            const seasonalComponent = seasonal[seasonIndex] || 0;
+            const trendComponent = components.trend[components.trend.length - 1] || 0;
+            forecast.push(seasonalComponent + trendComponent);
+          }
+        } else {
+          forecast = exponentialSmoothingForecast(values, 0.3, forecastPeriods);
+        }
+        break;
+    }
+    
+    return {
+      field: selectedField,
+      trend,
+      confidence: confidenceLevel / 100,
+      seasonality: seasonality.period,
+      forecast,
+      components,
+      analysisMethod: method,
+      analysisParams: {
+        statistics,
+        stationarityTest,
+        seasonalityStrength: seasonality.strength,
+        autocorrelation: autocorrelation.slice(0, 10), // First 10 lags
+        sampleSize: values.length,
+        forecastPeriods,
+        confidenceLevel
+      },
+      timestamp: new Date().toISOString()
+    };
+  };
+
+  // Simulate analysis with actual progress
+  const simulateAnalysis = async (method: string): Promise<TimeSeriesResult> => {
+    setIsLoading(true);
+    setProgress(0);
+    setAnalysisError(null);
+    
+    return new Promise((resolve, reject) => {
+      const steps = ['Preparing data', 'Calculating statistics', 'Testing stationarity', 'Detecting patterns', 'Generating forecast'];
+      let currentStep = 0;
+      
+      const interval = setInterval(() => {
+        currentStep++;
+        setProgress((currentStep / steps.length) * 100);
+        
+        if (currentStep >= steps.length) {
+          clearInterval(interval);
+          setIsLoading(false);
+          
+          try {
+            const result = performActualAnalysis(method);
+            resolve(result);
+          } catch (error) {
+            setAnalysisError(error instanceof Error ? error.message : 'Analysis failed');
+            reject(error);
+          }
+        }
+      }, 500);
+    });
+  };
+
+  // Common handler for all analysis methods
+  const handleAnalyze = async (method: string) => {
+    try {
+      const result = await simulateAnalysis(method);
+      setResults(prev => [result, ...prev.slice(0, 4)]); // Keep last 5 results
+    } catch (error) {
+      console.error('Analysis error:', error);
+    }
+  };
+
+  // Chart data preparation
+  const chartData = useMemo(() => {
+    const timeSeriesData = getTimeSeriesData();
+    return timeSeriesData.map((point, index) => ({
+      index,
+      value: point.value,
+      timestamp: point.timestamp
+    }));
+  }, [selectedField, dateField]);
+
+  const currentStatistics = useMemo(() => {
+    const timeSeriesData = getTimeSeriesData();
+    if (timeSeriesData.length === 0) return null;
+    return calculateStatistics(timeSeriesData.map(d => d.value));
+  }, [selectedField]);
+
+  return (
+    <div className="space-y-6">
+      {/* Time Series Analysis Header */}
+      <div className="bg-blue-900 text-white px-4 py-2 text-lg font-semibold rounded-md flex items-center gap-2">
+        <i className="fas fa-chart-line mr-2"></i>
+        Time Series Analysis
+      </div>
+      
+      {/* Error Alert */}
+      {analysisError && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertDescription className="text-red-800">
+            {analysisError}
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Configuration Panel */}
+      <Card className="p-4">
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-black">
+            <div>
+              <Label htmlFor="field-select">Select Numeric Field</Label>
+              <Select value={selectedField} onValueChange={setSelectedField}>
+                <SelectTrigger id="field-select">
+                  <SelectValue placeholder="Select a field" />
+                </SelectTrigger>
+                <SelectContent>
+                  {numericFields.map(field => (
+                    <SelectItem key={field.name} value={field.name}>
+                      {field.name} ({(field.value as number[]).length} points)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="date-select">Date Field (Optional)</Label>
+              <Select value={dateField} onValueChange={setDateField}>
+                <SelectTrigger id="date-select">
+                  <SelectValue placeholder="Select date field" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None (use indices)</SelectItem>
+                  {dateFields.map(field => (
+                    <SelectItem key={field.name} value={field.name}>
+                      {field.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="forecast-periods">Forecast Periods</Label>
+              <Input 
+                id="forecast-periods" 
+                type="number" 
+                min="1" 
+                max="50" 
+                value={forecastPeriods}
+                onChange={(e) => setForecastPeriods(Number(e.target.value))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="confidence-level">Confidence Level (%)</Label>
+              <Input 
+                id="confidence-level" 
+                type="number" 
+                min="80" 
+                max="99" 
+                value={confidenceLevel}
+                onChange={(e) => setConfidenceLevel(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          
+          {/* Data Preview and Statistics */}
+          {selectedField && currentStatistics && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Data Points</p>
+                <p className="text-lg font-semibold text-black">{currentStatistics.count}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Mean</p>
+                <p className="text-lg font-semibold text-black">{currentStatistics.mean.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Std Dev</p>
+                <p className="text-lg font-semibold text-black">{currentStatistics.std.toFixed(2)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Range</p>
+                <p className="text-lg font-semibold text-black">
+                  {currentStatistics.min.toFixed(1)} - {currentStatistics.max.toFixed(1)}
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {/* Data Visualization */}
+          {chartData.length > 0 && (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="index" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          
+          {isLoading && (
+            <div className="space-y-2">
+              <Label>Analysis Progress</Label>
+              <Progress value={progress} className="h-2" />
+              <p className="text-sm text-gray-500">
+                Analyzing time series data... {progress.toFixed(0)}% complete
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Analysis Buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button 
+          onClick={() => handleAnalyze('ARIMA')}
+          disabled={isLoading || !selectedField}
+          className="flex items-center gap-2"
+        >
+          <i className="fas fa-chart-bar"></i>
+          Run ARIMA Analysis
+        </Button>
+        <Button 
+          onClick={() => handleAnalyze('Exponential Smoothing')}
+          disabled={isLoading || !selectedField}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <i className="fas fa-chart-line"></i>
+          Exponential Smoothing
+        </Button>
+        <Button 
+          onClick={() => handleAnalyze('Seasonal Decomposition')}
+          disabled={isLoading || !selectedField}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <i className="fas fa-calendar-alt"></i>
+          Seasonal Analysis
+        </Button>
+      </div>
+
+      {/* Analysis Methods (Original Tabs) */}
+      <Card className="p-4">
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="arima" className="text-black">
+                <i className="fas fa-chart-bar mr-2"></i>ARIMA
+              </TabsTrigger>
+              <TabsTrigger value="exponential" className="text-black">
+                <i className="fas fa-chart-line mr-2"></i>Exponential Smoothing
+              </TabsTrigger>
+              <TabsTrigger value="seasonal" className="text-black">
+                <i className="fas fa-calendar-alt mr-2"></i>Seasonal Decomposition
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="arima" className="mt-4">
+              <EnhancedARIMA 
+                data={getTimeSeriesData()} 
+                forecastPeriods={forecastPeriods}
+                confidenceLevel={confidenceLevel / 100}
+                onAnalyze={(results) => {
+                  const convertedResults = results.map(result => ({
+                    ...result,
+                    analysisMethod: 'ARIMA (Enhanced)',
+                    timestamp: new Date().toISOString()
+                  }));
+                  setResults(prev => [...convertedResults, ...prev.slice(0, 3)]);
+                }} 
+              />
+            </TabsContent>
+            
+            <TabsContent value="exponential" className="mt-4">
+              <ExponentialSmoothing 
+                data={getTimeSeriesData()}
+                forecastPeriods={forecastPeriods}
+                confidenceLevel={confidenceLevel / 100}
+                onAnalyze={(params) => {
+                  handleAnalyze('Exponential Smoothing');
+                }} 
+              />
+            </TabsContent>
+            
+            <TabsContent value="seasonal" className="mt-4">
+              <SeasonalDecomposition 
+                data={getTimeSeriesData()}
+                forecastPeriods={forecastPeriods}
+                onAnalyze={(params) => {
+                  handleAnalyze('Seasonal Decomposition');
+                }} 
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Results Display */}
+      {results.length > 0 && (
+        <Card className="p-4">
+          <CardContent>
+            <div className="flex justify-between items-center mb-4 text-black">
+              <h3 className="text-lg font-semibold text-black">Analysis Results</h3>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const csvData = results.map(r => ({
+                      field: r.field,
+                      method: r.analysisMethod,
+                      trend: r.trend,
+                      confidence: r.confidence,
+                      seasonality: r.seasonality || 'None',
+                      forecast: r.forecast.join(';'),
+                      timestamp: r.timestamp
+                    }));
+                    console.log('Export data:', csvData);
+                  }}
+                >
+                  Export Results
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setResults([])}
+                >
+                  Clear All
+                </Button>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {results.map((result, index) => (
+                <div key={index} className="border rounded-lg p-4 bg-gray-50">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="font-medium text-black text-lg">{result.field}</h4>
+                      <p className="text-sm text-gray-500">
+                        {result.analysisMethod} • {result.timestamp ? new Date(result.timestamp).toLocaleString() : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        (result.trend || 'stable') === 'increasing' ? 'bg-green-100 text-green-800' :
+                        (result.trend || 'stable') === 'decreasing' ? 'bg-red-100 text-red-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {result.trend || 'stable'}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {((result.confidence || 0.95) * 100).toFixed(0)}% confidence
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Key Statistics */}
+                  {result.analysisParams?.statistics && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-3 bg-white rounded">
+                      <div>
+                        <p className="text-xs text-gray-500">Sample Size</p>
+                        <p className="font-semibold text-black">{result.analysisParams.statistics.count}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Mean ± Std</p>
+                        <p className="font-semibold text-black">
+                          {result.analysisParams.statistics.mean.toFixed(2)} ± {result.analysisParams.statistics.std.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Stationarity</p>
+                        <p className={`font-semibold ${result.analysisParams.stationarityTest?.isStationary ? 'text-green-600' : 'text-red-600'}`}>
+                          {result.analysisParams.stationarityTest?.isStationary ? 'Stationary' : 'Non-stationary'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Seasonality</p>
+                        <p className="font-semibold text-black">
+                          {result.seasonality ? `Period: ${result.seasonality}` : 'None detected'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Forecast */}
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-black mb-2">
+                      Forecast (next {forecastPeriods} periods)
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(result.forecast || []).slice(0, forecastPeriods).map((value, i) => (
+                        <span key={i} className="px-3 py-1 bg-blue-50 text-blue-800 rounded-lg text-sm font-medium">
+                          T+{i+1}: {typeof value === 'number' ? value.toFixed(2) : value}
+                        </span>
+                      ))}
+                    </div>
+                    
+                    {/* Forecast Trend Indicator */}
+                    {result.forecast && result.forecast.length >= 2 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">
+                          Forecast Trend: 
+                          <span className={`ml-1 font-medium ${
+                            result.forecast[result.forecast.length - 1] > result.forecast[0] 
+                              ? 'text-green-600' : result.forecast[result.forecast.length - 1] < result.forecast[0] 
+                              ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {result.forecast[result.forecast.length - 1] > result.forecast[0] 
+                              ? '↗ Increasing' : result.forecast[result.forecast.length - 1] < result.forecast[0] 
+                              ? '↘ Decreasing' : '→ Stable'}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Components Analysis */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-white p-3 rounded">
+                      <p className="text-sm font-medium text-black mb-1">Trend Component</p>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-1 bg-purple-50 text-purple-800 rounded text-sm">
+                          {(result.components?.trend || []).length} points
+                        </span>
+                        {result.components?.trend && result.components.trend.length > 0 && (
+                          <span className="text-xs text-gray-500">
+                            Range: {Math.min(...result.components.trend).toFixed(2)} to {Math.max(...result.components.trend).toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {result.seasonality && (
+                      <div className="bg-white p-3 rounded">
+                        <p className="text-sm font-medium text-black mb-1">Seasonal Component</p>
+                        <div className="flex items-center justify-between">
+                          <span className="px-2 py-1 bg-teal-50 text-teal-800 rounded text-sm">
+                            Period: {result.seasonality}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Strength: {result.analysisParams?.seasonalityStrength?.toFixed(3) || 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="bg-white p-3 rounded">
+                      <p className="text-sm font-medium text-black mb-1">Residuals</p>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-1 bg-amber-50 text-amber-800 rounded text-sm">
+                          {(result.components?.residual || []).length} points
+                        </span>
+                        {result.components?.residual && result.components.residual.length > 0 && (
+                          <span className="text-xs text-gray-500">
+                            Std: {Math.sqrt(result.components.residual.reduce((sum, val) => sum + val*val, 0) / result.components.residual.length).toFixed(3)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Autocorrelation Display */}
+                  {result.analysisParams?.autocorrelation && (
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-black mb-2">Autocorrelation (first 10 lags)</p>
+                      <div className="flex flex-wrap gap-1">
+                        {result.analysisParams.autocorrelation.map((corr, i) => (
+                          <span 
+                            key={i} 
+                            className={`px-2 py-1 rounded text-xs ${
+                              Math.abs(corr) > 0.5 ? 'bg-red-100 text-red-800' :
+                              Math.abs(corr) > 0.3 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-600'
+                            }`}
+                            title={`Lag ${i}: ${corr.toFixed(3)}`}
+                          >
+                            {i}: {corr.toFixed(2)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Model Diagnostics */}
+                  <div className="bg-white p-3 rounded">
+                    <p className="text-sm font-medium text-black mb-2">Model Diagnostics</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                      {result.analysisParams?.stationarityTest && (
+                        <div>
+                          <p className="text-gray-500">ADF Test Statistic</p>
+                          <p className="font-medium text-black">
+                            {result.analysisParams.stationarityTest.testStatistic.toFixed(3)}
+                          </p>
+                        </div>
+                      )}
+                      {result.analysisParams?.stationarityTest && (
+                        <div>
+                          <p className="text-gray-500">P-Value</p>
+                          <p className="font-medium text-black">
+                            {result.analysisParams.stationarityTest.pValue.toFixed(3)}
+                          </p>
+                        </div>
+                      )}
+                      {result.analysisParams?.statistics && (
+                        <div>
+                          <p className="text-gray-500">Skewness</p>
+                          <p className="font-medium text-black">
+                            {result.analysisParams.statistics.skewness.toFixed(3)}
+                          </p>
+                        </div>
+                      )}
+                      {result.analysisParams?.statistics && (
+                        <div>
+                          <p className="text-gray-500">Kurtosis</p>
+                          <p className="font-medium text-black">
+                            {result.analysisParams.statistics.kurtosis.toFixed(3)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Detailed Parameters (Collapsible) */}
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-sm font-medium text-black hover:text-blue-600">
+                      View Detailed Parameters
+                    </summary>
+                    <div className="mt-2 p-3 bg-gray-100 rounded">
+                      <pre className="text-xs overflow-x-auto text-black whitespace-pre-wrap">
+                        {JSON.stringify(result.analysisParams || {}, null, 2)}
+                      </pre>
+                    </div>
+                  </details>
+                </div>
+              ))}
+            </div>
+            
+            {/* Analysis Summary */}
+            {results.length > 1 && (
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-black mb-2">Analysis Summary</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Total Analyses</p>
+                    <p className="font-semibold text-black">{results.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Most Recent Method</p>
+                    <p className="font-semibold text-black">{results[0]?.analysisMethod || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Consensus Trend</p>
+                    <p className="font-semibold text-black">
+                      {(() => {
+                        const trends = results.map(r => r.trend);
+                        const trendCounts = trends.reduce((acc, trend) => {
+                          acc[trend] = (acc[trend] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        const consensusTrend = Object.entries(trendCounts).sort(([,a], [,b]) => b - a)[0];
+                        return consensusTrend ? `${consensusTrend[0]} (${consensusTrend[1]}/${results.length})` : 'N/A';
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Help Section */}
+      <Card className="p-4 bg-gray-50">
+        <CardContent>
+          <h4 className="font-medium text-black mb-2">Analysis Guide</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-700">
+            <div>
+              <p className="font-medium text-black">ARIMA</p>
+              <p>Best for stationary data with clear trends. Handles autocorrelation and provides robust forecasts.</p>
+            </div>
+            <div>
+              <p className="font-medium text-black">Exponential Smoothing</p>
+              <p>Good for data with trends but no strong seasonality. Simple and fast implementation.</p>
+            </div>
+            <div>
+              <p className="font-medium text-black">Seasonal Decomposition</p>
+              <p>Ideal for data with clear seasonal patterns. Separates trend, seasonal, and residual components.</p>
+            </div>
+          </div>
+          
+          <div className="mt-4 p-3 bg-blue-50 rounded">
+            <p className="text-sm text-blue-800">
+              <strong>Tips:</strong> Ensure your data has at least 10-20 points for reliable analysis. 
+              Non-stationary data may require differencing. Consider seasonal patterns when choosing methods.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+} 

@@ -1,0 +1,1 @@
+<h3 className="text-lg font-semibold text-black">Data Quality Score</h3> 
