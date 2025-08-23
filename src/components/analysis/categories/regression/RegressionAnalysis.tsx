@@ -178,7 +178,7 @@ export function RegressionAnalysis({ fields }: RegressionAnalysisProps) {
             regressionResult = calculateElasticNetRegression(targetDataField, featureField, regularizationStrength, 0.5, crossValidationFolds);
             break;
           case 'logistic':
-            regressionResult = calculateLogisticRegression(targetDataField, featureField, crossValidationFolds);
+            regressionResult = calculateLogisticRegression(targetDataField, featureField, 1000, 1e-4, 0.01, crossValidationFolds);
             break;
           case 'quantile':
             regressionResult = calculateQuantileRegression(targetDataField, featureField, 0.5, crossValidationFolds);
